@@ -13,7 +13,7 @@ These two aspects affect write scalability.
 
 ### Sample Output
 
-Below are two different sample ollections, one displaying a shard key with even split distribution,
+Below are two different sample collections, one displaying a shard key with even split distribution,
 the other one with uneven distribution.
 
 Even distribution             | Uneven distribution 
@@ -45,8 +45,17 @@ Where _namespace_ is the `db.collection` [namespace](https://docs.mongodb.com/ma
 For more accurate results, it is recommended to run plot_split_distribution against a standalone instance running a copy of the [config database](https://docs.mongodb.com/manual/reference/config-database/), rather than an operating cluster.
 
 Main arguments:
-* `-u MONGO_URI`: the [connection string](https://docs.mongodb.com/manual/reference/connection-string/) to the cluster (or the instance running the [config database](https://docs.mongodb.com/manual/reference/config-database/)).
+* `-u MONGO_URI`: the [connection string](https://docs.mongodb.com/manual/reference/connection-string/) to the deployment. Defaults to `localhost:27017`.
 * `-s STARTTIME`: specify a start time (UTC 8601). Defaults to the earliest time in the changelog window.
+
+Examples:
+```
+# python plot_split_distribution.py db.collection
+```
+```
+# python plot_split_distribution.py db.collection -u mongodb://192.168.1.1:3000 -s "2019-01-10T04:56"
+```
+
 
 ### Dependencies
 
