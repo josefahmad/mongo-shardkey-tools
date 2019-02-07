@@ -59,7 +59,9 @@ Examples:
 
 ### Dependencies
 
-TODO
+```
+pip install progressbar
+```
 
 Disclaimer
 ----------
