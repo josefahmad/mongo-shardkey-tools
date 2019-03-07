@@ -60,7 +60,7 @@ Examples:
 ### Dependencies
 
 ```
-pip install progressbar pymongo
+pip install matplotlib numpy progressbar pymongo
 ```
 
 Disclaimer
