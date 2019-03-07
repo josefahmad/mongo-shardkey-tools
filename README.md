@@ -8,7 +8,7 @@ Plot and inspect the distribution of chunk splits in a collection.
 
 This tool can be useful to visualise the [frequency](https://docs.mongodb.com/manual/core/sharding-shard-key/#shard-key-frequency)
 of the shard key and can help determine whether the shard key is [monotonically changing](https://docs.mongodb.com/manual/core/sharding-shard-key/#monotonically-changing-shard-keys).
-These two aspects affect write scalability. 
+These two aspects affect write scalability.
 
 
 ### Sample Output
@@ -16,7 +16,7 @@ These two aspects affect write scalability.
 Below are two different sample collections, one displaying a shard key with even split distribution,
 the other one with uneven distribution.
 
-Even distribution             | Uneven distribution 
+Even distribution             | Uneven distribution
 :-------------------------:|:-------------------------:
 ![img-good-key](img/good.png "Good shard key")|  ![img-bad-key](img/bad.png "Bad shard key")
 
@@ -60,7 +60,7 @@ Examples:
 ### Dependencies
 
 ```
-pip install progressbar
+pip install progressbar pymongo
 ```
 
 Disclaimer
@@ -71,4 +71,3 @@ under any of their commercial support subscriptions or otherwise. Any usage of
 mongo-shardkey-tools is at your own risk. Bug reports, feature requests and
 questions can be posted in the [Issues](https://github.com/josefahmad/mongo-shardkey-tools/issues?state=open>)
 section on GitHub.
-
