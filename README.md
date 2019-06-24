@@ -1,32 +1,31 @@
 # mongo-shardkey-tools
-A set of tools to support the design and evaluation of a MongoDB shard key.
+
+Visualise and inspect the performance and scalability of a MongoDB shard key.
 
 plot_split_distribution
 -------------------------
 
-Plot and inspect the distribution of chunk splits in a collection.
-
 Visualise the [frequency](https://docs.mongodb.com/manual/core/sharding-shard-key/#shard-key-frequency)
 of a shard key and whether the key is [monotonically changing](https://docs.mongodb.com/manual/core/sharding-shard-key/#monotonically-changing-shard-keys).
-Both aspects affect write scalability.
+Both aspects affect write scalability and data distribution.
 
 ### Sample Output
 
-The collection on the left hand side indicates that the shard key has an even split distribution,
-the one on the right hand side displays poor distribution.
+The left hand plot displays a shard key with even split distribution; by contrast,
+the plot on the right hand side displays poor distribution.
 
 Even distribution             | Uneven distribution
 :-------------------------:|:-------------------------:
 ![img-good-key](img/good.png "Good shard key")|  ![img-bad-key](img/bad.png "Bad shard key")
 
-The X axis displays the chunks in the cluster at the earliest time available. The leftmost chunk is the minKey chunk, the rightmost chunk is the maxKey chunk.<br/> 
-The Y axis displays the number of chunk splits per chunk that occurred during the time frame. A chunk split usually indicates write activity.
+The X axis corresponds to the sharding chunks at the earliest time available. The leftmost chunk is the minKey chunk, the rightmost chunk is the maxKey chunk.<br/> 
+The Y axis displays the chunk splits per chunk that occurred during the time window.
 
 The left-hand example covers a time frame of 79 hours. The right-hand example covers 125 days. The time frame defaults to the earliest time available and is configurable.
 
-Click a chunk to display its range and the number of splits it underwent:
+Click a chunk to display its range and the number of splits it underwent.
 ```
-Chunk[7851]: {"min": {"key": "caa"}, "max": {"key": "cba"}, "splits": 3}
+Chunk[7851]: {"min": {"shardkey": "aa"}, "max": {"shardkey": "az"}, "splits": 3}
 ```
 
 ### Getting Started
@@ -50,7 +49,7 @@ Chunk[7851]: {"min": {"key": "caa"}, "max": {"key": "cba"}, "splits": 3}
 ### Usage
 
 ```
-# python plot_split_distribution.py db.coll
+$ python plot_split_distribution.py db.coll
 ```
 
 Where `db.coll` is the target namespace. 
