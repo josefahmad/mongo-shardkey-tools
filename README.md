@@ -65,6 +65,7 @@ the resulting distribution may not accurately reflect actual write activity.
 * The [balancer](https://docs.mongodb.com/manual/tutorial/manage-sharded-cluster-balancer/) can split a large chunk
   during a chunk migration.
 * An [indivisible chunk](https://docs.mongodb.com/manual/core/sharding-data-partitioning/#indivisible-chunks) cannot be split. The plot shows no apparent activity for an indivisible chunk even if the chunk is subject to writes.
+* If manual splitting is implemented, the split activity may not reflect write activity.
 
 For more accurate results, ensure that the chunks are divisible and that the balancer is disabled during the time of interest.
 
