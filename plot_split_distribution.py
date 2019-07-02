@@ -81,7 +81,7 @@ def onclick(event):
 
     for i in range(min_range - 1, max_range):
         if (final_list[i]['splits'] != 0):
-            print('Chunk[' + str(i) + ']: ' + dumps(final_list[i]))
+            print('range[' + str(i) + ']: ' + dumps(final_list[i]))
 
 
 def fieldorder_cmp(a, b, op):
@@ -239,11 +239,11 @@ def print_stats(db, ns, list_splits, t0, t1):
 
     print('Statistics:')
     print('   Splits: ' + str(splits_total))
-    print('   Chunks involved in a split: ' + str(length_splits))
+    print('   Ranges involved in a split: ' + str(length_splits))
+    print('   Chunks in the collection at ' +
+          str(t0) + ': ' + str(len(final_list)))
     print('   Chunks in the collection at ' +
           str(t1) + ': ' + str(chunks_total))
-    print('   Chunks in the collection at ' +
-          str(t0) + ' (plot): ' + str(len(final_list)))
 
 
 def build_split_distribution(db, ns, no_timeout):
@@ -327,7 +327,7 @@ def plot_results(t0, t1):
     plt.title(t0.strftime(date_strfmt) + ' -> ' + t1.strftime(date_strfmt) +
               ' (' + delta_str + ')', fontsize=10)
     plt.ylabel('Splits')
-    plt.xlabel('Chunks (at ' + str(t0) + ')')
+    plt.xlabel('Ranges')
 
     cid = fig.canvas.mpl_connect('button_press_event', onclick)
 
