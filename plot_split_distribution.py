@@ -182,7 +182,7 @@ def build_split_list(db, ns, t0, t1):
         codec_options=CodecOptions(document_class=SON))
 
     split_pattern = re.compile('split')
-    splits_count = db['changelog'].count(
+    splits_count = db['changelog'].count_documents(
         {'ns': ns, 'what': split_pattern, 'details.number': {'$ne': 1}, 'time': {'$gte': t0}})
 
     pipeline = [
@@ -228,8 +228,8 @@ def print_stats(db, ns, list_splits, t0, t1):
 
     split_pattern = re.compile('split')
     length_splits = len(list_splits)
-    chunks_total = db.chunks.count({'ns': ns})
-    splits_total = db.changelog.count(
+    chunks_total = db.chunks.count_documents({'ns': ns})
+    splits_total = db.changelog.count_documents(
         {'what': split_pattern, 'ns': ns, 'details.number': {'$ne': 1}, 'time': {'$gte': t0}})
 
     if (verbose):
@@ -254,7 +254,7 @@ def build_split_distribution(db, ns, no_timeout):
         codec_options=CodecOptions(document_class=SON))
     i_splits = 0
 
-    chunks_count = db['chunks'].count({'ns': ns})
+    chunks_count = db['chunks'].count_documents({'ns': ns})
 
     if (no_progressbar == False):
         pbar = ProgressBar(
@@ -398,7 +398,7 @@ if __name__ == '__main__':
 
     db = MongoClient(uri)['config']
 
-    if db['collections'].count({'_id': ns, 'dropped': False}) == 0:
+    if db['collections'].count_documents({'_id': ns, 'dropped': False}) == 0:
         raise Exception('Namespace ' + ns +
                         ' does not exist or is not sharded')
 
