@@ -88,6 +88,8 @@ def is_balancer_split(ns, split, split_time):
 
     changelog_son = db['changelog'].with_options(
         codec_options=CodecOptions(document_class=SON))
+    actionlog_son = db['actionlog'].with_options(
+        codec_options=CodecOptions(document_class=SON))
 
     #TODO noTimeout
     #TODO make it work with 3.4 (7 steps)
@@ -97,12 +99,14 @@ def is_balancer_split(ns, split, split_time):
            'step 3 of 6' not in moveChunk['details'] and
            moveChunk['details']['min'] == split['details']['before']['min'] and
            moveChunk['details']['max'] == split['details']['before']['max']):
-               if(verbose):
-                  print('balancer initiated split: ' + dumps(split))
-               return True
-           #TODO
-           #if (balancer round):
-               #  return True
+               for bround in actionlog_son.find({'what': 'balancer.round', 'time' : {'$gte': split_time}}).sort([('time', pymongo.ASCENDING)]).limit(1):
+                   if (bround['time'] - datetime.timedelta(milliseconds=bround['details']['executionTimeMillis']) <= split_time):
+                       if (verbose):
+                          print('balancer initiated split: ' + dumps(split))
+                       return True
+                   else:
+                       break
+               break
         else:
            break
 
