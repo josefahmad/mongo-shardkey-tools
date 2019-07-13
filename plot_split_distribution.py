@@ -84,7 +84,28 @@ def onclick(event):
         if (final_list[i]['splits'] != 0):
             print('range[' + str(i) + ']: ' + dumps(final_list[i]))
 
-def is_balancer_split(split):
+def is_balancer_split(ns, split, split_time):
+
+    changelog_son = db['changelog'].with_options(
+        codec_options=CodecOptions(document_class=SON))
+
+    #TODO noTimeout
+    #TODO make it work with 3.4 (7 steps)
+    for moveChunk in changelog_son.find({'what': 'moveChunk.from', 'ns': ns, 'time' : {'$lt': split_time}}).sort([('time', pymongo.DESCENDING)]).limit(1):
+        if (moveChunk['details']['note'] == 'aborted' and
+           'step 2 of 6' in moveChunk['details'] and
+           'step 3 of 6' not in moveChunk['details'] and
+           moveChunk['details']['min'] == split['details']['before']['min'] and
+           moveChunk['details']['max'] == split['details']['before']['max']):
+               if(verbose):
+                  print('balancer initiated split: ' + dumps(split))
+               return True
+           #TODO
+           #if (balancer round):
+               #  return True
+        else:
+           break
+
     return False
 
 def fieldorder_cmp(a, b, op):
@@ -191,7 +212,7 @@ def build_split_list(db, ns, t0, t1):
     pipeline = [
         {'$match': {'ns': ns, 'what': split_pattern,
                     'details.number': {'$ne': 1}, 'time': {'$gte': t0}}},
-        {'$project': {'_id': 0, 'details.before.min': 1, 'details.before.max': 1}},
+        {'$project': {'_id': 0, 'details.before.min': 1, 'details.before.max': 1, 'time': 1}},
         {'$sort': SON([('details.before.min', 1)])}]
 
     bookmark = 0
@@ -199,7 +220,7 @@ def build_split_list(db, ns, t0, t1):
     for split in changelog_son.aggregate(pipeline, allowDiskUse=True):
 
         if exclude_balancer_splits == True:
-            if (is_balancer_split(split)):
+            if (is_balancer_split(ns, split, split['time'])):
                 continue
 
         found = False
@@ -244,6 +265,7 @@ def print_stats(db, ns, list_splits, t0, t1):
         for chunk in list_splits:
             print('  ' + dumps(chunk))
 
+    # TODO make it compatible with https://github.com/josefahmad/mongo-shardkey-tools/issues/4
     print('Statistics:')
     print('   Splits: ' + str(splits_total))
     print('   Ranges involved in a split: ' + str(length_splits))
