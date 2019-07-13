@@ -26,6 +26,7 @@ from pymongo import MongoClient
 
 verbose = False
 no_progressbar = False
+exclude_balancer_splits = False
 
 date_strfmt = "%Y-%m-%dT%H:%M:%S"
 
@@ -83,6 +84,8 @@ def onclick(event):
         if (final_list[i]['splits'] != 0):
             print('range[' + str(i) + ']: ' + dumps(final_list[i]))
 
+def is_balancer_split(split):
+    return False
 
 def fieldorder_cmp(a, b, op):
 
@@ -194,6 +197,10 @@ def build_split_list(db, ns, t0, t1):
     bookmark = 0
 
     for split in changelog_son.aggregate(pipeline, allowDiskUse=True):
+
+        if exclude_balancer_splits == True:
+            if (is_balancer_split(split)):
+                continue
 
         found = False
         try:
@@ -380,6 +387,8 @@ if __name__ == '__main__':
                         help='disable progress bar', action='store_true')
     parser.add_argument(
         '-N', '--no_timeout', help='use noCursorTimeout (advanced)', action='store_true')
+    parser.add_argument(
+        '-x', '--no_balancer_splits', help='try to exclude balancer initiated splits (slow)', action='store_true')
     parser.add_argument('namespace', nargs=1, type=str, help='namespace')
     args = parser.parse_args()
 
@@ -393,6 +402,9 @@ if __name__ == '__main__':
 
     if args.no_progressbar:
         no_progressbar = True
+
+    if args.no_balancer_splits:
+        exclude_balancer_splits = True
 
     ns = args.namespace[0]
 
