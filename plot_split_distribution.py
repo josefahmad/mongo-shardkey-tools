@@ -91,24 +91,29 @@ def is_balancer_split(ns, split, split_time):
     actionlog_son = db['actionlog'].with_options(
         codec_options=CodecOptions(document_class=SON))
 
-    #TODO noTimeout
-    #TODO make it work with 3.4 (7 steps)
-    for moveChunk in changelog_son.find({'what': 'moveChunk.from', 'ns': ns, 'time' : {'$lt': split_time}}).sort([('time', pymongo.DESCENDING)]).limit(1):
-        if (moveChunk['details']['note'] == 'aborted' and
-           'step 2 of 6' in moveChunk['details'] and
-           'step 3 of 6' not in moveChunk['details'] and
-           moveChunk['details']['min'] == split['details']['before']['min'] and
-           moveChunk['details']['max'] == split['details']['before']['max']):
-               for bround in actionlog_son.find({'what': 'balancer.round', 'time' : {'$gte': split_time}}).sort([('time', pymongo.ASCENDING)]).limit(1):
-                   if (bround['time'] - datetime.timedelta(milliseconds=bround['details']['executionTimeMillis']) <= split_time):
-                       if (verbose):
-                          print('balancer initiated split: ' + dumps(split))
-                       return True
-                   else:
-                       break
-               break
-        else:
-           break
+    # TODO describe algorithm
+    # TODO noTimeout
+    # TODO make it work with 3.4 (7 steps)
+    # db.changelog.createIndex({what:1, ns:1, 'details.min':1, 'details.max':1 , 'details.step 2 of 6':1,  'details.step 3 of 6':1,  time:1})
+    # db.actionlog.createIndex({what:1, time:1})
+
+    for moveChunk in changelog_son.find({'what': 'moveChunk.from',
+                                         'ns': ns,
+					 'details.note': 'aborted',
+					 'details.min': split['details']['before']['min'],
+					 'details.max': split['details']['before']['max'],
+					 'details.step 2 of 6': {'$exists': True},
+					 'details.step 3 of 6': {'$exists': False}, 'time' : {'$lt': split_time}}).sort([('time', pymongo.DESCENDING)]).limit(1):
+        for bround in actionlog_son.find({'what': 'balancer.round', 'time' : {'$gte': split_time}}).sort([('time', pymongo.ASCENDING)]).limit(1):
+	    # The failed moveChunk + split must have happened within the balancer round
+            bround_start = bround['time'] - datetime.timedelta(milliseconds=bround['details']['executionTimeMillis'])
+            if (bround_start <= moveChunk['time'] and bround_start <= split_time):
+                if (verbose):
+                    print('balancer initiated split: ' + dumps(split))
+                return True
+            break
+
+        break
 
     return False
 
