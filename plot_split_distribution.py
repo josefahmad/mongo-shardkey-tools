@@ -218,6 +218,13 @@ def build_split_list(db, ns, t0, t1):
     splits_count = db['changelog'].count(
         {'ns': ns, 'what': split_pattern, 'details.number': {'$ne': 1}, 'time': {'$gte': t0}})
 
+    print('Building splits...')
+
+    if (no_progressbar == False):
+        pbar = ProgressBar(
+            widgets=[Percentage(), Bar()], maxval=splits_count).start()
+        bar_i = 0
+
     pipeline = [
         {'$match': {'ns': ns, 'what': split_pattern,
                     'details.number': {'$ne': 1}, 'time': {'$gte': t0}}},
@@ -225,8 +232,13 @@ def build_split_list(db, ns, t0, t1):
         {'$sort': SON([('details.before.min', 1)])}]
 
     bookmark = 0
+    bar_i = 0
 
     for split in changelog_son.aggregate(pipeline, allowDiskUse=True):
+
+        if (no_progressbar == False):
+            pbar.update(bar_i)
+	    bar_i = bar_i + 1
 
         if exclude_balancer_splits == True:
             if (is_balancer_split(ns, split, split['time'])):
@@ -259,6 +271,9 @@ def build_split_list(db, ns, t0, t1):
             list_splits.append(new)
             if(verbose):
                 print('New! ' + dumps(new))
+
+    if (no_progressbar == False):
+        pbar.finish()
 
 
 def print_stats(db, ns, list_splits, t0, t1):
