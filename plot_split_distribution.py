@@ -33,6 +33,7 @@ date_strfmt = "%Y-%m-%dT%H:%M:%S"
 list_splits = []
 final_list = []
 
+splits_discarded = 0
 
 def get_time_extent(db):
 
@@ -211,6 +212,8 @@ def find_split(list_splits, bookmark, chunk):
 
 def build_split_list(db, ns, t0, t1):
 
+    global splits_discarded
+
     changelog_son = db['changelog'].with_options(
         codec_options=CodecOptions(document_class=SON))
 
@@ -242,6 +245,7 @@ def build_split_list(db, ns, t0, t1):
 
         if exclude_balancer_splits == True:
             if (is_balancer_split(ns, split, split['time'])):
+	        splits_discarded = splits_discarded + 1
                 continue
 
         found = False
@@ -289,12 +293,22 @@ def print_stats(db, ns, list_splits, t0, t1):
         for chunk in list_splits:
             print('  ' + dumps(chunk))
 
-    # TODO make it compatible with https://github.com/josefahmad/mongo-shardkey-tools/issues/4
     print('Statistics:')
-    print('   Splits: ' + str(splits_total))
+
+    if (exclude_balancer_splits):
+        print('   Splits: ' + str(splits_total - splits_discarded))
+    else:
+        print('   Splits: ' + str(splits_total))
+
     print('   Ranges involved in a split: ' + str(length_splits))
+
+    if (exclude_balancer_splits):
+        print('   Splits discarded because initiated by the balancer: ' +
+	      str(splits_discarded) + '/' + str(splits_total) + ' (' +
+	      str(round(float(splits_discarded)/float(splits_total) * 100, 2)) + '%)')
+
     print('   Chunks in the collection at ' +
-          str(t0) + ': ' + str(len(final_list)))
+          str(t0) + ': ' + str(chunks_total - splits_total))
     print('   Chunks in the collection at ' +
           str(t1) + ': ' + str(chunks_total))
 
