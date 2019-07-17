@@ -27,6 +27,7 @@ from pymongo import MongoClient
 verbose = False
 no_progressbar = False
 exclude_balancer_splits = False
+only_balancer_splits = False
 
 date_strfmt = "%Y-%m-%dT%H:%M:%S"
 
@@ -248,6 +249,11 @@ def build_split_list(db, ns, t0, t1):
 	        splits_discarded = splits_discarded + 1
                 continue
 
+        if only_balancer_splits == True:
+            if (is_balancer_split(ns, split, split['time']) == False):
+	        splits_discarded = splits_discarded + 1
+                continue
+
         found = False
         try:
             for ix in range(bookmark, len(list_splits)):
@@ -295,15 +301,18 @@ def print_stats(db, ns, list_splits, t0, t1):
 
     print('Statistics:')
 
-    if (exclude_balancer_splits):
-        print('   Splits: ' + str(splits_total - splits_discarded))
-    else:
-        print('   Splits: ' + str(splits_total))
+    print('   Splits: ' + str(splits_total - splits_discarded))
 
     print('   Ranges involved in a split: ' + str(length_splits))
 
     if (exclude_balancer_splits):
-        print('   Splits discarded because initiated by the balancer: ' +
+        reason = '   Splits discarded because initiated by the balancer: '
+
+    if (only_balancer_splits):
+        reason = '   Splits discarded because not initiated by the balancer: '
+
+    if (exclude_balancer_splits or only_balancer_splits):
+        print(reason +
 	      str(splits_discarded) + '/' + str(splits_total) + ' (' +
 	      str(round(float(splits_discarded)/float(splits_total) * 100, 2)) + '%)')
 
@@ -449,6 +458,8 @@ if __name__ == '__main__':
         '-N', '--no_timeout', help='use noCursorTimeout (advanced)', action='store_true')
     parser.add_argument(
         '-x', '--no_balancer_splits', help='try to exclude balancer initiated splits (slow)', action='store_true')
+    parser.add_argument(
+        '-b', '--only_balancer_splits', help='try to visualise only balancer initiated splits (slow)', action='store_true')
     parser.add_argument('namespace', nargs=1, type=str, help='namespace')
     args = parser.parse_args()
 
@@ -463,8 +474,13 @@ if __name__ == '__main__':
     if args.no_progressbar:
         no_progressbar = True
 
+    # TODO mutually exclusive
+
     if args.no_balancer_splits:
         exclude_balancer_splits = True
+
+    if args.only_balancer_splits:
+        only_balancer_splits = True
 
     ns = args.namespace[0]
 
