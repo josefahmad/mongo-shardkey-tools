@@ -240,6 +240,8 @@ def build_split_list(db, ns, t0, t1):
 
     for split in changelog_son.aggregate(pipeline, allowDiskUse=True):
 
+        discard = False
+
         if (no_progressbar == False):
             pbar.update(bar_i)
 	    bar_i = bar_i + 1
@@ -247,12 +249,12 @@ def build_split_list(db, ns, t0, t1):
         if exclude_balancer_splits == True:
             if (is_balancer_split(ns, split, split['time'])):
 	        splits_discarded = splits_discarded + 1
-                continue
+		discard = True
 
         if only_balancer_splits == True:
             if (is_balancer_split(ns, split, split['time']) == False):
 	        splits_discarded = splits_discarded + 1
-                continue
+		discard = True
 
         found = False
         try:
@@ -263,6 +265,8 @@ def build_split_list(db, ns, t0, t1):
                         fieldorder_cmp(split['details']['before']['max'], chunk['max'], 'lte')):
                     found = True
                     chunk['splits'] = chunk['splits'] + 1
+		    if (discard):
+                        chunk['discards'] = chunk['discards'] + 1
                     break
         except TypeError as e:
             print('typeerror: split: ' + dumps(split) +
@@ -278,6 +282,9 @@ def build_split_list(db, ns, t0, t1):
             new['min'] = split['details']['before']['min']
             new['max'] = split['details']['before']['max']
             new['splits'] = 1
+            new['discards'] = 0
+            if (discard):
+                new['discards'] = 1
             list_splits.append(new)
             if(verbose):
                 print('New! ' + dumps(new))
@@ -352,7 +359,8 @@ def build_split_distribution(db, ns, no_timeout):
         (split, bookmark) = find_split(list_splits, bookmark, chunk)
         if (split != None):
             # Insert the split, offset by split count
-            final_list.append(split)
+	    chunk['splits'] = split['splits'] - split['discards']
+            final_list.append(chunk)
             try:
                 for skip in range(split['splits']):
                     chunks_cursor.next()
