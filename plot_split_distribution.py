@@ -93,9 +93,17 @@ def is_balancer_split(ns, split, split_time):
     actionlog_son = db['actionlog'].with_options(
         codec_options=CodecOptions(document_class=SON))
 
-    # TODO describe algorithm
     # TODO noTimeout
     # TODO make it work with 3.4 (7 steps)
+
+    # The algorithm uses the following method to determine whether a split is initiated
+    # the balancer:
+    # * The split occurred within the a balancer round, AND
+    # * Before the split and within the balancer round, a failed moveChunk.from
+    #   occurred for a chunk whose range matches the 'before' range in the split, AND
+    # * The failed moveChunk.from aborted at step 3.
+
+    # For non-prod environments consider the following indices to speed up the algo:
     # db.changelog.createIndex({what:1, ns:1, 'details.min':1, 'details.max':1 , 'details.step 2 of 6':1,  'details.step 3 of 6':1,  time:1})
     # db.actionlog.createIndex({what:1, time:1})
 
