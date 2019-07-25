@@ -104,7 +104,7 @@ def is_balancer_split(ns, split, split_time):
     # * The failed moveChunk.from aborted at step 3.
 
     # For non-prod environments consider the following indices to speed up the algo:
-    # db.changelog.createIndex({what:1, ns:1, 'details.min':1, 'details.max':1 , 'details.step 2 of 6':1,  'details.step 3 of 6':1,  time:1})
+    # db.changelog.createIndex({what:1, ns:1, 'details.min':1, 'details.max':1, 'details.note':1, time:1})
     # db.actionlog.createIndex({what:1, time:1})
 
     for moveChunk in changelog_son.find({'what': 'moveChunk.from',
@@ -112,8 +112,10 @@ def is_balancer_split(ns, split, split_time):
 					 'details.note': 'aborted',
 					 'details.min': split['details']['before']['min'],
 					 'details.max': split['details']['before']['max'],
-					 'details.step 2 of 6': {'$exists': True},
-					 'details.step 3 of 6': {'$exists': False}, 'time' : {'$lt': split_time}}).sort([('time', pymongo.DESCENDING)]).limit(1):
+					 # Server 3.4 has 7 moveChunk steps
+					 '$or' : [ {'details.step 2 of 6': {'$exists': True}},  {'details.step 2 of 7': {'$exists': True}} ],
+					 '$or' : [ {'details.step 3 of 6': {'$exists': False}}, {'details.step 3 of 7': {'$exists': False}} ],
+					 'time' : {'$lt': split_time}}).sort([('time', pymongo.DESCENDING)]).limit(1):
         for bround in actionlog_son.find({'what': 'balancer.round', 'time' : {'$gte': split_time}}).sort([('time', pymongo.ASCENDING)]).limit(1):
 	    # The failed moveChunk + split must have happened within the balancer round
             bround_start = bround['time'] - datetime.timedelta(milliseconds=bround['details']['executionTimeMillis'])
