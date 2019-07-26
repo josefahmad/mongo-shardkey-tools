@@ -492,7 +492,8 @@ if __name__ == '__main__':
     if args.no_progressbar:
         no_progressbar = True
 
-    # TODO mutually exclusive
+    if (args.no_balancer_splits and args.only_balancer_splits):
+        raise Exception('--no_balancer_splits and --only_balancer_splits are mutually exclusive')
 
     if args.no_balancer_splits:
         exclude_balancer_splits = True
