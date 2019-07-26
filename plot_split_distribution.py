@@ -94,7 +94,6 @@ def is_balancer_split(ns, split, split_time):
         codec_options=CodecOptions(document_class=SON))
 
     # TODO noTimeout
-    # TODO make it work with 3.4 (7 steps)
 
     # The algorithm uses the following method to determine whether a split is initiated
     # the balancer:
