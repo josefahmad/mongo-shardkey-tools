@@ -86,14 +86,12 @@ def onclick(event):
         if (final_list[i]['splits'] != 0):
             print('range[' + str(i) + ']: ' + dumps(final_list[i]))
 
-def is_balancer_split(ns, split, split_time):
+def is_balancer_split(ns, split, split_time, no_timeout):
 
     changelog_son = db['changelog'].with_options(
         codec_options=CodecOptions(document_class=SON))
     actionlog_son = db['actionlog'].with_options(
         codec_options=CodecOptions(document_class=SON))
-
-    # TODO noTimeout
 
     # The algorithm uses the following method to determine whether a split is initiated
     # the balancer:
@@ -114,7 +112,8 @@ def is_balancer_split(ns, split, split_time):
 					 # Server 3.4 has 7 moveChunk steps
 					 '$or' : [ {'details.step 2 of 6': {'$exists': True}},  {'details.step 2 of 7': {'$exists': True}} ],
 					 '$or' : [ {'details.step 3 of 6': {'$exists': False}}, {'details.step 3 of 7': {'$exists': False}} ],
-					 'time' : {'$lt': split_time}}).sort([('time', pymongo.DESCENDING)]).limit(1):
+					 'time' : {'$lt': split_time}},
+					 no_cursor_timeout=no_timeout).sort([('time', pymongo.DESCENDING)]).limit(1):
         for bround in actionlog_son.find({'what': 'balancer.round', 'time' : {'$gte': split_time}}).sort([('time', pymongo.ASCENDING)]).limit(1):
 	    # The failed moveChunk + split must have happened within the balancer round
             bround_start = bround['time'] - datetime.timedelta(milliseconds=bround['details']['executionTimeMillis'])
@@ -220,7 +219,7 @@ def find_split(list_splits, bookmark, chunk):
     return None, -1
 
 
-def build_split_list(db, ns, t0, t1):
+def build_split_list(db, ns, t0, t1, no_timeout):
 
     global splits_discarded
 
@@ -256,12 +255,12 @@ def build_split_list(db, ns, t0, t1):
 	    bar_i = bar_i + 1
 
         if exclude_balancer_splits == True:
-            if (is_balancer_split(ns, split, split['time'])):
+            if (is_balancer_split(ns, split, split['time'], no_timeout)):
 	        splits_discarded = splits_discarded + 1
 		discard = True
 
         if only_balancer_splits == True:
-            if (is_balancer_split(ns, split, split['time']) == False):
+            if (is_balancer_split(ns, split, split['time'], no_timeout) == False):
 	        splits_discarded = splits_discarded + 1
 		discard = True
 
@@ -515,7 +514,7 @@ if __name__ == '__main__':
 
     print('Time window: [' + str(t0) + ', ' + str(t1) + ']')
 
-    build_split_list(db, ns, t0, t1)
+    build_split_list(db, ns, t0, t1, args.no_timeout)
     build_split_distribution(db, ns, args.no_timeout)
 
     print_stats(db, ns, list_splits, t0, t1)
