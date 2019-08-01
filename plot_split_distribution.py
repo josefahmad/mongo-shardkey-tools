@@ -106,16 +106,16 @@ def is_balancer_split(ns, split, split_time, no_timeout):
 
     for moveChunk in changelog_son.find({'what': 'moveChunk.from',
                                          'ns': ns,
-					 'details.note': 'aborted',
-					 'details.min': split['details']['before']['min'],
-					 'details.max': split['details']['before']['max'],
-					 # Server 3.4 has 7 moveChunk steps
-					 '$or' : [ {'details.step 2 of 6': {'$exists': True}},  {'details.step 2 of 7': {'$exists': True}} ],
-					 '$or' : [ {'details.step 3 of 6': {'$exists': False}}, {'details.step 3 of 7': {'$exists': False}} ],
-					 'time' : {'$lt': split_time}},
-					 no_cursor_timeout=no_timeout).sort([('time', pymongo.DESCENDING)]).limit(1):
+                     'details.note': 'aborted',
+                     'details.min': split['details']['before']['min'],
+                     'details.max': split['details']['before']['max'],
+                     # Server 3.4 has 7 moveChunk steps
+                     '$or' : [ {'details.step 2 of 6': {'$exists': True}},  {'details.step 2 of 7': {'$exists': True}} ],
+                     '$or' : [ {'details.step 3 of 6': {'$exists': False}}, {'details.step 3 of 7': {'$exists': False}} ],
+                     'time' : {'$lt': split_time}},
+                     no_cursor_timeout=no_timeout).sort([('time', pymongo.DESCENDING)]).limit(1):
         for bround in actionlog_son.find({'what': 'balancer.round', 'time' : {'$gte': split_time}}).sort([('time', pymongo.ASCENDING)]).limit(1):
-	    # The failed moveChunk + split must have happened within the balancer round
+            # The failed moveChunk + split must have happened within the balancer round
             bround_start = bround['time'] - datetime.timedelta(milliseconds=bround['details']['executionTimeMillis'])
             if (bround_start <= moveChunk['time'] and bround_start <= split_time):
                 if (verbose):
@@ -252,17 +252,17 @@ def build_split_list(db, ns, t0, t1, no_timeout):
 
         if (no_progressbar == False):
             pbar.update(bar_i)
-	    bar_i = bar_i + 1
+            bar_i = bar_i + 1
 
         if exclude_balancer_splits == True:
             if (is_balancer_split(ns, split, split['time'], no_timeout)):
-	        splits_discarded = splits_discarded + 1
-		discard = True
+                splits_discarded = splits_discarded + 1
+                discard = True
 
         if only_balancer_splits == True:
             if (is_balancer_split(ns, split, split['time'], no_timeout) == False):
-	        splits_discarded = splits_discarded + 1
-		discard = True
+                splits_discarded = splits_discarded + 1
+                discard = True
 
         found = False
         try:
@@ -273,7 +273,7 @@ def build_split_list(db, ns, t0, t1, no_timeout):
                         fieldorder_cmp(split['details']['before']['max'], chunk['max'], 'lte')):
                     found = True
                     chunk['splits'] = chunk['splits'] + 1
-		    if (discard):
+                    if (discard):
                         chunk['discards'] = chunk['discards'] + 1
                     break
         except TypeError as e:
@@ -328,8 +328,8 @@ def print_stats(db, ns, list_splits, t0, t1):
 
     if (exclude_balancer_splits or only_balancer_splits):
         print(reason +
-	      str(splits_discarded) + '/' + str(splits_total) + ' (' +
-	      str(round(float(splits_discarded)/float(splits_total) * 100, 2)) + '%)')
+          str(splits_discarded) + '/' + str(splits_total) + ' (' +
+          str(round(float(splits_discarded)/float(splits_total) * 100, 2)) + '%)')
 
     print('   Chunks in the collection at ' +
           str(t0) + ': ' + str(chunks_total - splits_total))
@@ -367,7 +367,7 @@ def build_split_distribution(db, ns, no_timeout):
         (split, bookmark) = find_split(list_splits, bookmark, chunk)
         if (split != None):
             # Insert the split, offset by split count
-	    chunk['splits'] = split['splits'] - split['discards']
+            chunk['splits'] = split['splits'] - split['discards']
             final_list.append(chunk)
             try:
                 for skip in range(split['splits']):
