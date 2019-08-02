@@ -26,12 +26,15 @@ from pymongo import MongoClient
 
 verbose = False
 no_progressbar = False
+exclude_balancer_splits = False
+only_balancer_splits = False
 
 date_strfmt = "%Y-%m-%dT%H:%M:%S"
 
 list_splits = []
 final_list = []
 
+splits_discarded = 0
 
 def get_time_extent(db):
 
@@ -83,6 +86,46 @@ def onclick(event):
         if (final_list[i]['splits'] != 0):
             print('range[' + str(i) + ']: ' + dumps(final_list[i]))
 
+def is_balancer_split(ns, split, split_time, no_timeout):
+
+    changelog_son = db['changelog'].with_options(
+        codec_options=CodecOptions(document_class=SON))
+    actionlog_son = db['actionlog'].with_options(
+        codec_options=CodecOptions(document_class=SON))
+
+    # The algorithm uses the following method to determine whether a split is initiated
+    # the balancer:
+    # * The split occurred within the a balancer round, AND
+    # * Before the split and within the balancer round, a failed moveChunk.from
+    #   occurred for a chunk whose range matches the 'before' range in the split, AND
+    # * The failed moveChunk.from aborted at step 3.
+
+    # For non-prod environments consider the following indices to speed up the algo:
+    # db.changelog.createIndex({what:1, ns:1, 'details.min':1, 'details.max':1, 'details.note':1, time:1})
+    # db.actionlog.createIndex({what:1, time:1})
+
+    for moveChunk in changelog_son.find({'what': 'moveChunk.from',
+                                         'ns': ns,
+                     'details.note': 'aborted',
+                     'details.min': split['details']['before']['min'],
+                     'details.max': split['details']['before']['max'],
+                     # Server 3.4 has 7 moveChunk steps
+                     '$or' : [ {'details.step 2 of 6': {'$exists': True}},  {'details.step 2 of 7': {'$exists': True}} ],
+                     '$or' : [ {'details.step 3 of 6': {'$exists': False}}, {'details.step 3 of 7': {'$exists': False}} ],
+                     'time' : {'$lt': split_time}},
+                     no_cursor_timeout=no_timeout).sort([('time', pymongo.DESCENDING)]).limit(1):
+        for bround in actionlog_son.find({'what': 'balancer.round', 'time' : {'$gte': split_time}}).sort([('time', pymongo.ASCENDING)]).limit(1):
+            # The failed moveChunk + split must have happened within the balancer round
+            bround_start = bround['time'] - datetime.timedelta(milliseconds=bround['details']['executionTimeMillis'])
+            if (bround_start <= moveChunk['time'] and bround_start <= split_time):
+                if (verbose):
+                    print('balancer initiated split: ' + dumps(split))
+                return True
+            break
+
+        break
+
+    return False
 
 def fieldorder_cmp(a, b, op):
 
@@ -176,7 +219,9 @@ def find_split(list_splits, bookmark, chunk):
     return None, -1
 
 
-def build_split_list(db, ns, t0, t1):
+def build_split_list(db, ns, t0, t1, no_timeout):
+
+    global splits_discarded
 
     changelog_son = db['changelog'].with_options(
         codec_options=CodecOptions(document_class=SON))
@@ -185,15 +230,39 @@ def build_split_list(db, ns, t0, t1):
     splits_count = db['changelog'].count(
         {'ns': ns, 'what': split_pattern, 'details.number': {'$ne': 1}, 'time': {'$gte': t0}})
 
+    print('Building splits...')
+
+    if (no_progressbar == False):
+        pbar = ProgressBar(
+            widgets=[Percentage(), Bar()], maxval=splits_count).start()
+        bar_i = 0
+
     pipeline = [
         {'$match': {'ns': ns, 'what': split_pattern,
                     'details.number': {'$ne': 1}, 'time': {'$gte': t0}}},
-        {'$project': {'_id': 0, 'details.before.min': 1, 'details.before.max': 1}},
+        {'$project': {'_id': 0, 'details.before.min': 1, 'details.before.max': 1, 'time': 1}},
         {'$sort': SON([('details.before.min', 1)])}]
 
     bookmark = 0
+    bar_i = 0
 
     for split in changelog_son.aggregate(pipeline, allowDiskUse=True):
+
+        discard = False
+
+        if (no_progressbar == False):
+            pbar.update(bar_i)
+            bar_i = bar_i + 1
+
+        if exclude_balancer_splits == True:
+            if (is_balancer_split(ns, split, split['time'], no_timeout)):
+                splits_discarded = splits_discarded + 1
+                discard = True
+
+        if only_balancer_splits == True:
+            if (is_balancer_split(ns, split, split['time'], no_timeout) == False):
+                splits_discarded = splits_discarded + 1
+                discard = True
 
         found = False
         try:
@@ -204,6 +273,8 @@ def build_split_list(db, ns, t0, t1):
                         fieldorder_cmp(split['details']['before']['max'], chunk['max'], 'lte')):
                     found = True
                     chunk['splits'] = chunk['splits'] + 1
+                    if (discard):
+                        chunk['discards'] = chunk['discards'] + 1
                     break
         except TypeError as e:
             print('typeerror: split: ' + dumps(split) +
@@ -219,9 +290,15 @@ def build_split_list(db, ns, t0, t1):
             new['min'] = split['details']['before']['min']
             new['max'] = split['details']['before']['max']
             new['splits'] = 1
+            new['discards'] = 0
+            if (discard):
+                new['discards'] = 1
             list_splits.append(new)
             if(verbose):
                 print('New! ' + dumps(new))
+
+    if (no_progressbar == False):
+        pbar.finish()
 
 
 def print_stats(db, ns, list_splits, t0, t1):
@@ -238,10 +315,24 @@ def print_stats(db, ns, list_splits, t0, t1):
             print('  ' + dumps(chunk))
 
     print('Statistics:')
-    print('   Splits: ' + str(splits_total))
+
+    print('   Splits: ' + str(splits_total - splits_discarded))
+
     print('   Ranges involved in a split: ' + str(length_splits))
+
+    if (exclude_balancer_splits):
+        reason = '   Splits discarded because initiated by the balancer: '
+
+    if (only_balancer_splits):
+        reason = '   Splits discarded because not initiated by the balancer: '
+
+    if (exclude_balancer_splits or only_balancer_splits):
+        print(reason +
+          str(splits_discarded) + '/' + str(splits_total) + ' (' +
+          str(round(float(splits_discarded)/float(splits_total) * 100, 2)) + '%)')
+
     print('   Chunks in the collection at ' +
-          str(t0) + ': ' + str(len(final_list)))
+          str(t0) + ': ' + str(chunks_total - splits_total))
     print('   Chunks in the collection at ' +
           str(t1) + ': ' + str(chunks_total))
 
@@ -276,7 +367,8 @@ def build_split_distribution(db, ns, no_timeout):
         (split, bookmark) = find_split(list_splits, bookmark, chunk)
         if (split != None):
             # Insert the split, offset by split count
-            final_list.append(split)
+            chunk['splits'] = split['splits'] - split['discards']
+            final_list.append(chunk)
             try:
                 for skip in range(split['splits']):
                     chunks_cursor.next()
@@ -380,6 +472,10 @@ if __name__ == '__main__':
                         help='disable progress bar', action='store_true')
     parser.add_argument(
         '-N', '--no_timeout', help='use noCursorTimeout (advanced)', action='store_true')
+    parser.add_argument(
+        '-x', '--no_balancer_splits', help='try to exclude balancer initiated splits (slow)', action='store_true')
+    parser.add_argument(
+        '-b', '--only_balancer_splits', help='try to visualise only balancer initiated splits (slow)', action='store_true')
     parser.add_argument('namespace', nargs=1, type=str, help='namespace')
     args = parser.parse_args()
 
@@ -393,6 +489,15 @@ if __name__ == '__main__':
 
     if args.no_progressbar:
         no_progressbar = True
+
+    if (args.no_balancer_splits and args.only_balancer_splits):
+        raise Exception('--no_balancer_splits and --only_balancer_splits are mutually exclusive')
+
+    if args.no_balancer_splits:
+        exclude_balancer_splits = True
+
+    if args.only_balancer_splits:
+        only_balancer_splits = True
 
     ns = args.namespace[0]
 
@@ -409,7 +514,7 @@ if __name__ == '__main__':
 
     print('Time window: [' + str(t0) + ', ' + str(t1) + ']')
 
-    build_split_list(db, ns, t0, t1)
+    build_split_list(db, ns, t0, t1, args.no_timeout)
     build_split_distribution(db, ns, args.no_timeout)
 
     print_stats(db, ns, list_splits, t0, t1)
