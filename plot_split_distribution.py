@@ -72,8 +72,8 @@ def onclick(event):
     if (chunk_range == 0):
         chunk_range = 1
 
-    min_range = xdata - chunk_range / 2
-    max_range = xdata + chunk_range / 2
+    min_range = int(xdata - chunk_range / 2)
+    max_range = int(xdata + chunk_range / 2)
 
     if (min_range <= 0):
         min_range = 1
