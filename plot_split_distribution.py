@@ -180,7 +180,35 @@ def fieldorder_cmp(a, b, op):
                         return True
                     if bv == MinKey:
                         return False
-
+            elif (av is None or bv is None):
+                if (op == 'gt' or op == 'gte'):
+                    if av == MaxKey:
+                        return True
+                    if av == MinKey:
+                        return False
+                    if bv == MaxKey:
+                        return False
+                    if bv == MinKey:
+                        return True
+                if (op == 'lt' or op == 'lte'):
+                    if av == MaxKey:
+                        return False
+                    if av == MinKey:
+                        return True
+                    if bv == MaxKey:
+                        return True
+                    if bv == MinKey:
+                        return False
+                if (op == 'gt' or op == 'gte'):
+                    if (av is None):
+                        return False
+                    if (bv is None):
+                        return True
+                if (op == 'lt' or op == 'lte'):
+                    if (av is None):
+                        return True
+                    if (bv is None):
+                        return False
             else:
                 raise e
 
@@ -206,7 +234,7 @@ def find_split(list_splits, bookmark, chunk):
                 # The current chunk is lower than the next split.
                 return None, bookmark
         except TypeError as e:
-            print('typeerror: split: ' + dumps(split) +
+            print('typeerror (find_split)split: ' + dumps(split) +
                   ', chunk: ' + dumps(chunk))
             print(e)
 
@@ -277,7 +305,7 @@ def build_split_list(db, ns, t0, t1, no_timeout):
                         chunk['discards'] = chunk['discards'] + 1
                     break
         except TypeError as e:
-            print('typeerror: split: ' + dumps(split) +
+            print('typeerror (build_split_list) split: ' + dumps(split) +
                   ', chunk: ' + dumps(chunk))
             print(e)
 
