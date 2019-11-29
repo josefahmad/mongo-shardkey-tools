@@ -505,6 +505,7 @@ if __name__ == '__main__':
     parser.add_argument(
         '-b', '--only_balancer_splits', help='try to visualise only balancer initiated splits (slow)', action='store_true')
     parser.add_argument('namespace', nargs=1, type=str, help='namespace')
+    parser.add_argument('-d', '--database', type=str, help='point to custom config db (default: config)')
     args = parser.parse_args()
 
     if args.mongo_uri:
@@ -527,9 +528,20 @@ if __name__ == '__main__':
     if args.only_balancer_splits:
         only_balancer_splits = True
 
+    if args.database:
+        config_db = args.database
+    else:
+        config_db = 'config'
+
     ns = args.namespace[0]
 
-    db = MongoClient(uri)['config']
+    client = MongoClient(uri)
+
+    dbs = client.list_database_names()
+    if config_db not in dbs:
+        raise Exception('Database ' + config_db + ' does not exist')
+
+    db = client[config_db]
 
     if db['collections'].count({'_id': ns, 'dropped': False}) == 0:
         raise Exception('Namespace ' + ns +
