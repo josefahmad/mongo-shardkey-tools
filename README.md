@@ -38,7 +38,7 @@ range[7851]: {"min": {"shardkey": "aa"}, "max": {"shardkey": "az"}, "splits": 3}
 1. Download this repository.
 2. Install dependencies.
    ```
-   $ pip install matplotlib numpy progressbar pymongo
+   $ pip install -r requirements.txt
 
    ```
 3. Launch the tool.
